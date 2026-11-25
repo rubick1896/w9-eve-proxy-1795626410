@@ -1,0 +1,33 @@
+name: probe
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: reachability
+        run: |
+          set +e
+          echo "EGRESS_IP: $(curl -s -m 10 https://ifconfig.me)"
+          echo "GH_META_HOOKS: $(curl -s -m 10 https://api.github.com/meta | head -c 200)"
+          probe() {
+            echo "===== $1 $2"
+            curl -sS -m 25 -o /tmp/body -D /tmp/hdr -X "$1" "$2" ${3:+-H "$3"} ${4:+-d "$4"}
+            echo "--- status/headers"
+            head -20 /tmp/hdr
+            echo "--- body (first 800 bytes)"
+            head -c 800 /tmp/body
+            echo
+          }
+          probe GET https://gitlab-proxy.everstake.one/
+          probe GET https://gitlab-proxy.everstake.one/gitlab
+          probe POST https://gitlab-proxy.everstake.one/gitlab "Content-Type: application/json" '{"object_kind":"push","event_name":"push","project":{"id":1,"path_with_namespace":"probe/probe"},"ref":"refs/heads/main"}'
+          probe GET https://bastion.everstake.one/
+          probe GET https://grafana.bastion.everstake.one/
+          probe GET https://ws137.everstake.one/
+          probe GET https://sk17.everstake.one/
+          probe GET https://bd-dashboard.everstake.one/
+          probe GET https://sui-main.everstake.one/
+          echo "DONE"
